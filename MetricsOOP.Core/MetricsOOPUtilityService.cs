@@ -224,16 +224,16 @@ namespace MetricsOOP.Core
 
         private static int GetOpenAttributesForClass(Type type)
         {
-            var openAttributesCount = type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Length;
+            var openAttributesCount = type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
-            return openAttributesCount;
+            return openAttributesCount.Length;
         }
 
         private static int GetHiddenAttributesForClass(Type type)
         {
             var hiddenAttributes = type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
-            return hiddenAttributes.Count();
+            return hiddenAttributes.Length;
         }
 
         private static int GetNumberOfInheritedAndOverriddenMethodsForClass(Type type)
