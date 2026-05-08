@@ -1,6 +1,6 @@
 ﻿using MetricsOOP.Core;
 
-var metricsOOPAnalyzer = MetricsOOPUtilityService.CreateWithContext("FluentValidation");
+var metricsOOPAnalyzer = MetricsOOPUtilityService.CreateWithContext("MetricsOOP.Example");
 
 var nocDistribution = metricsOOPAnalyzer.CalculateNumberOfChildren();
 foreach (var kv in nocDistribution)

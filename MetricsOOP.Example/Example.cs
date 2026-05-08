@@ -2,6 +2,9 @@
 {
     abstract class A
     {
+        private int a;
+
+        public int b;
         public void A1() { }
         protected void A2() { }
         private void A3() { }
