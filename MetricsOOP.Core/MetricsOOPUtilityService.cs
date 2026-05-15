@@ -82,7 +82,7 @@ namespace MetricsOOP.Core
             return (double)totalSumOfHiddenMethodsForClasses / (totalSumOfOpenMethodsForClasses + totalSumOfHiddenMethodsForClasses);
         }
 
-        
+
         public double CalculateAttributeHidingFactor()
         {
             int totalSumOfOpenAttributesForClasses = _classes.Sum(c => GetOpenAttributesForClass(c));
@@ -98,33 +98,33 @@ namespace MetricsOOP.Core
 
         public double CalculateMethodInheritanceFactor()
         {
-            var totalSumOfInheritedAndOverriddenMethodsForClasses = _classes.Sum(c => GetNumberOfInheritedAndOverriddenMethodsForClass(c));
+            var totalSumOfInheritedMethodsForClasses = _classes.Sum(c => GetNumberOfInheritedMethodsForClass(c));
 
-            if (totalSumOfInheritedAndOverriddenMethodsForClasses == 0)
+            if (totalSumOfInheritedMethodsForClasses == 0)
             {
                 return 0;
             }
 
-            var allMethods = _classes.Sum(c => GetAllMethods(c));
+            var allMethods = _classes.Sum(c => GetAllAvailableMethods(c));
 
             if (allMethods == 0)
             {
                 return 0;
             }
 
-            return (double)totalSumOfInheritedAndOverriddenMethodsForClasses / allMethods;
+            return (double)totalSumOfInheritedMethodsForClasses / allMethods;
         }
 
         public double CalculateAttributeInheritanceFactor()
         {
-            var totalSumOfInheritedAndOverriddenFieldsForClasses = _classes.Sum(c => GetNumberOfInheritedAndOverriddenFieldsForClass(c));
+            var totalSumOfInheritedAndOverriddenFieldsForClasses = _classes.Sum(c => GetNumberOfInheritedFieldsForClass(c));
 
             if (totalSumOfInheritedAndOverriddenFieldsForClasses == 0)
             {
                 return 0;
             }
 
-            var allFields = _classes.Sum(c => GetAllFields(c));
+            var allFields = _classes.Sum(c => GetAllAvailableFields(c));
 
             if (allFields == 0)
             {
@@ -136,21 +136,10 @@ namespace MetricsOOP.Core
 
         public double CalculatePolymorphismObjectFactor()
         {
-            var totalSumOfInheritedAndOverriddenMethodsForClasses = _classes.Sum(c => GetNumberOfInheritedAndOverriddenMethodsForClass(c));
+            var numerator = _classes.Sum(c => GetNumberOfOverriddenMethodsForClass(c));
+            var denominator = _classes.Sum(c => GetNumberOfNewMethodsForClass(c) * CalculateDescendantsCount(c));
 
-            if (totalSumOfInheritedAndOverriddenMethodsForClasses == 0)
-            {
-                return 0;
-            }
-
-            var sumOfProductNewMethodsAndDescendantsForClasses = _classes.Sum(c => GetNumberOfNewMethodsForClass(c) * CalculateDescendantsCount(c));
-
-            if (sumOfProductNewMethodsAndDescendantsForClasses == 0)
-            {
-                return 0;
-            }
-
-            return (double) totalSumOfInheritedAndOverriddenMethodsForClasses / sumOfProductNewMethodsAndDescendantsForClasses;
+            return (double)numerator / denominator;
         }
 
         private static List<Type> LoadClasses(Assembly assembly)
@@ -205,6 +194,11 @@ namespace MetricsOOP.Core
             return nextDepth;
         }
 
+        private static bool IsCountableMethod(MethodInfo m) =>
+    !m.IsSpecialName &&
+    !m.Name.Contains('<') &&
+    m.DeclaringType != typeof(object);
+
         private static int GetOpenMethodsForClass(Type type)
         {
             var openMethods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
@@ -224,62 +218,90 @@ namespace MetricsOOP.Core
 
         private static int GetOpenAttributesForClass(Type type)
         {
-            var openAttributesCount = type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            var openAttributes = type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            var openProperties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
-            return openAttributesCount.Length;
+            return openAttributes.Length + openProperties.Length;
         }
 
         private static int GetHiddenAttributesForClass(Type type)
         {
             var hiddenAttributes = type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            var hiddenProperties = type.GetProperties(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
-            return hiddenAttributes.Length;
+            return hiddenAttributes.Length + hiddenProperties.Length;
         }
 
-        private static int GetNumberOfInheritedAndOverriddenMethodsForClass(Type type)
-        {
-            var methods = type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-                .Where(m => m.GetBaseDefinition().DeclaringType != type
-                && (m.GetBaseDefinition().IsVirtual || m.GetBaseDefinition().IsAbstract)
-                && m.DeclaringType != typeof(object))
-                .ToList();
-
-            return methods.Count;
-        }
-
-        private static int GetNumberOfInheritedAndOverriddenFieldsForClass(Type type)
+        private static int GetNumberOfInheritedFieldsForClass(Type type)
         {
             var fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                 .Where(m => m.DeclaringType != type
                 && m.DeclaringType != typeof(object))
                 .ToList();
 
-            return fields.Count;
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(m => m.DeclaringType != type
+                && m.DeclaringType != typeof(object))
+                .ToList();
+
+            return fields.Count + properties.Count;
         }
 
-        private static int GetAllMethods(Type type)
+        private static int GetAllAvailableMethods(Type type)
         {
             var methods = type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-                .Where(m => m.DeclaringType != typeof(object));
+                .Where(m => IsCountableMethod(m) && ((m.DeclaringType != type && !m.IsPrivate) || m.DeclaringType == type));
 
             return methods.Count();
         }
 
-        private static int GetAllFields(Type type)
+        private static int GetAllAvailableFields(Type type)
         {
             var fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-                .Where(m => m.DeclaringType != typeof(object));
+                .Where(m => m.DeclaringType != typeof(object) && ((m.DeclaringType != type && !m.IsPrivate) || m.DeclaringType == type));
 
-            return fields.Count();
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(m => m.DeclaringType != typeof(object) && ((m.DeclaringType != type && (!m.GetGetMethod()?.IsPrivate ?? false)) || m.DeclaringType == type));
+
+            return fields.Count() + properties.Count();
         }
 
         private static int GetNumberOfNewMethodsForClass(Type type)
         {
-            var methods = type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                .Where(m => m.GetBaseDefinition().DeclaringType == type && m.DeclaringType != typeof(object))
+            return type.GetMethods(
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(m =>
+                    !m.IsPrivate &&
+                    IsCountableMethod(m) &&
+                    m.GetBaseDefinition().DeclaringType == type)
+                .Count();
+        }
+
+        private int GetNumberOfOverriddenMethodsForClass(Type type)
+        {
+            var methodsOverridden = type
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(m =>
+                    !m.IsPrivate &&
+                    IsCountableMethod(m) &&
+                    m.GetBaseDefinition().DeclaringType != type &&
+                    (m.GetBaseDefinition().IsVirtual || m.GetBaseDefinition().IsAbstract) &&
+                    _classes.Contains(m.GetBaseDefinition().DeclaringType))
                 .ToList();
 
-            return methods.Count;
+            return methodsOverridden.Count;
+        }
+
+        private int GetNumberOfInheritedMethodsForClass(Type type)
+        {
+            var methodsInherited = type
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(m => IsCountableMethod(m) &&
+                    !m.IsPrivate &&
+                    m.DeclaringType != type)
+                .ToList();
+
+            return methodsInherited.Count;
         }
 
         private int CalculateDescendantsCount(Type type)

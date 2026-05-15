@@ -1,6 +1,8 @@
 ﻿using MetricsOOP.Core;
+using NUnit;
+using MediatR;
 
-var metricsOOPAnalyzer = MetricsOOPUtilityService.CreateWithContext("MetricsOOP.Example");
+var metricsOOPAnalyzer = MetricsOOPUtilityService.CreateWithContext("FluentValidation");
 
 var nocDistribution = metricsOOPAnalyzer.CalculateNumberOfChildren();
 foreach (var kv in nocDistribution)
